@@ -1,0 +1,721 @@
+خدمت شما توضیح کامل فصل ۱۴ از کتاب "Machine Learning with PyTorch and Scikit-Learn" به زبان فارسی و گام‌به‌گام ارائه می‌شود.
+
+---
+
+## فصل 14: طبقه‌بندی تصاویر با شبکه‌های عصبی پیچشی عمیق (Classifying Images with Deep Convolutional Neural Networks)
+
+### 14.1. بلوک‌های سازنده CNN‌ها (The building blocks of CNNs)
+
+**خلاصه:**
+این بخش به معرفی شبکه‌های عصبی پیچشی (Convolutional Neural Networks - CNNs) می‌پردازد که نوع خاصی از معماری شبکه‌های عصبی عمیق (Deep Neural Network Architecture) هستند و به طور خاص برای کار با مجموعه‌داده‌های تصویری (Image Datasets) مناسب‌اند. به دلیل عملکرد برتر آن‌ها در مقایسه با روش‌های سنتی، CNN‌ها اکنون به طور گسترده در بینایی کامپیوتر (Computer Vision) برای دستیابی به نتایج پیشرفته در وظایف مختلف تشخیص تصویر (Image Recognition) استفاده می‌شوند. در این فصل، یاد می‌گیرید که چگونه لایه‌های پیچشی (Convolutional Layers) می‌توانند به عنوان استخراج‌کننده‌های ویژگی (Feature Extractors) قدرتمند برای طبقه‌بندی تصاویر (Image Classification) به کار روند.
+
+**معادل‌های فارسی:**
+* **شبکه‌های عصبی پیچشی (CNNs):** Convolutional Neural Networks (CNNs)
+* **شبکه‌های عصبی عمیق:** Deep Neural Networks
+* **بینایی کامپیوتر:** Computer Vision
+* **تشخیص تصویر:** Image Recognition
+* **لایه‌های پیچشی/کانولوشنی:** Convolutional Layers
+* **استخراج‌کننده ویژگی:** Feature Extractor
+* **لایه نمونه‌برداری فرعی/پولینگ:** Subsampling Layer / Pooling Layer
+* **سلسله‌مراتب ویژگی:** Feature Hierarchies
+* **پیچش گسسته:** Discrete Convolution
+* **فیلتر/هسته:** Filter / Kernel
+* **نقشه ویژگی:** Feature Map
+* **پدینگ/هم‌اندازه‌سازی:** Padding
+
+**توضیحات مفاهیم و مثال با کد پایتون:**
+
+#### 14.1.1. درک CNN‌ها و سلسله‌مراتب ویژگی (Understanding CNNs and feature hierarchies)
+
+CNN‌ها از معماری خاصی بهره می‌برند که به آن‌ها اجازه می‌دهد الگوهای سلسله‌مراتبی را در تصاویر شناسایی کنند. در لایه‌های اولیه، CNN‌ها ویژگی‌های ساده‌ای مانند لبه‌ها و گوشه‌ها را تشخیص می‌دهند. با پیشروی به لایه‌های عمیق‌تر، این ویژگی‌های ساده‌تر ترکیب شده و الگوهای پیچیده‌تری مانند بافت‌ها، اشکال و در نهایت اجسام کامل را شناسایی می‌کنند. این رویکرد الهام‌گرفته از نحوه پردازش اطلاعات بصری در قشر بینایی مغز انسان است.
+
+#### 14.1.2. انجام پیچش‌های گسسته (Performing discrete convolutions)
+
+**پیچش گسسته (Discrete Convolution)** یک عملیات بنیادی در CNN است. برای درک این عملیات، ابتدا به پیچش یک‌بعدی (One-dimensional Convolution) می‌پردازیم که گاهی برای داده‌های ترتیبی مانند متن استفاده می‌شود. سپس پیچش دوبعدی (Two-dimensional Convolution) که معمولاً برای تصاویر دوبعدی کاربرد دارد، مورد بررسی قرار می‌گیرد.
+
+**پیچش‌های گسسته در یک بُعد (Discrete convolutions in one dimension):**
+فرض کنید دو بردار `x` (ورودی/سیگنال) و `w` (فیلتر/هسته) داریم. پیچش آن‌ها به صورت `y[i] = Σ x[i-k]w[k]` تعریف می‌شود. در عمل، از پدینگ (padding) با صفر استفاده می‌شود تا اندازه خروجی کنترل شود و از مشکلات مربوط به اندیس‌های بی‌نهایت جلوگیری شود. سپس هسته (فیلتر) چرخانده (فلیپ) شده و ضرب نقطه‌ای (Dot Product) با بخش‌های متوالی از ورودی انجام می‌شود.
+
+**مثال: پیچش یک‌بعدی**
+
+```python
+import numpy as np
+
+def discrete_convolution_1d(x, w, padding=0):
+    """
+    پیچش گسسته یک‌بعدی را پیاده‌سازی می‌کند.
+
+    ورودی‌ها:
+    x (numpy.array): بردار ورودی/سیگنال.
+    w (numpy.array): بردار فیلتر/هسته.
+    padding (int): تعداد صفرها برای پدینگ در هر طرف.
+
+    خروجی:
+    numpy.array: بردار خروجی پیچش‌یافته.
+    """
+    # اعمال پدینگ
+    x_padded = np.pad(x, (padding, padding), 'constant', constant_values=0)
+    
+    # چرخاندن فیلتر (kernal)
+    w_flipped = np.flip(w)
+    
+    output_len = len(x_padded) - len(w_flipped) + 1
+    output = np.zeros(output_len)
+    
+    for i in range(output_len):
+        # انتخاب یک "پچ" (patch) از ورودی پدینگ شده
+        x_patch = x_padded[i : i + len(w_flipped)]
+        # محاسبه ضرب نقطه‌ای
+        output[i] = np.dot(x_patch, w_flipped)
+        
+    return output
+
+# مثال کاربرد
+x = np.array([1, 2, 3, 4, 5])
+w = np.array([0.5, 1.0, 0.5])
+
+# بدون پدینگ
+output_no_pad = discrete_convolution_1d(x, w)
+print(f"خروجی پیچش بدون پدینگ: {output_no_pad}")
+
+# با پدینگ
+output_with_pad = discrete_convolution_1d(x, w, padding=1)
+print(f"خروجی پیچش با پدینگ: {output_with_pad}")
+
+```
+
+**تفسیر خط به خط کد:**
+
+* `import numpy as np`: کتابخانه NumPy برای عملیات آرایه‌ای وارد می‌شود.
+* `def discrete_convolution_1d(x, w, padding=0):`: تابع اصلی پیچش گسسته یک‌بعدی را تعریف می‌کند.
+* `x_padded = np.pad(x, (padding, padding), 'constant', constant_values=0)`: این خط صفرها را به دو طرف بردار ورودی `x` اضافه می‌کند. `(padding, padding)` نشان می‌دهد که `padding` صفر به ابتدا و `padding` صفر به انتها اضافه شود. `constant_values=0` مشخص می‌کند که با صفر پدینگ شود.
+* `w_flipped = np.flip(w)`: فیلتر `w` چرخانده می‌شود. این یک گام مهم در تعریف پیچش است که آن را از همبستگی متقابل (Cross-Correlation) متمایز می‌کند.
+* `output_len = len(x_padded) - len(w_flipped) + 1`: طول بردار خروجی محاسبه می‌شود.
+* `output = np.zeros(output_len)`: یک آرایه NumPy از صفرها به اندازه طول خروجی ایجاد می‌شود.
+* `for i in range(output_len):`: حلقه‌ای که بر روی طول خروجی تکرار می‌شود.
+* `x_patch = x_padded[i : i + len(w_flipped)]`: یک "پچ" یا زیربخش از `x_padded` انتخاب می‌شود که طول آن برابر با طول فیلتر چرخیده‌شده است.
+* `output[i] = np.dot(x_patch, w_flipped)`: ضرب نقطه‌ای پچ ورودی با فیلتر چرخیده‌شده محاسبه شده و در مکان `i` از آرایه خروجی ذخیره می‌شود.
+
+**خروجی مورد انتظار:**
+
+```
+خروجی پیچش بدون پدینگ: [ 3.5  7.   9.5]
+خروجی پیچش با پدینگ: [ 1.   2.5  7.   9.5  8.5]
+```
+
+**تعیین اندازه خروجی پیچش (Determining the size of the convolution output):**
+اندازه خروجی یک پیچش به اندازه ورودی، اندازه فیلتر و مقدار پدینگ بستگی دارد. فرمول کلی برای پیچش یک‌بعدی با `n` ورودی، `m` فیلتر و `p` پدینگ، اندازه خروجی `n - m + 2p + 1` است.
+
+**انجام یک پیچش گسسته در 2 بُعد (Performing a discrete convolution in 2D):**
+پیچش دوبعدی مشابه یک‌بعدی است، اما بر روی ماتریس‌ها (تصاویر) اعمال می‌شود. فیلتر (هسته) روی تصویر حرکت کرده و در هر موقعیت، ضرب نقطه‌ای عنصر به عنصر انجام شده و نتایج جمع می‌شوند تا یک عنصر از نقشه ویژگی خروجی را تشکیل دهند.
+
+**مثال: پیچش دوبعدی (مفهومی)**
+
+تصور کنید یک تصویر $3 \times 3$ داریم:
+```
+[[1, 1, 1],
+ [0, 1, 1],
+ [0, 0, 1]]
+```
+و یک فیلتر $2 \times 2$:
+```
+[[1, 0],
+ [0, 1]]
+```
+هنگام انجام پیچش (بدون پدینگ و با گام ۱)، فیلتر روی هر بخش $2 \times 2$ از تصویر اعمال می‌شود:
+
+1.  **اولین موقعیت (گوشه بالا چپ):**
+    $(1 \times 1) + (1 \times 0) + (0 \times 0) + (1 \times 1) = 2$
+
+این عملیات به صورت "پنجره‌ای کشویی" (Sliding Window) روی کل تصویر ادامه می‌یابد.
+
+#### 14.1.3. لایه‌های نمونه‌برداری فرعی (Subsampling layers)
+
+**لایه‌های نمونه‌برداری فرعی (Subsampling Layers)** یا **لایه‌های پولینگ (Pooling Layers)** برای کاهش ابعاد فضایی (Spatial Dimensions) نقشه‌های ویژگی (Feature Maps) استفاده می‌شوند. این کار به کاهش پیچیدگی محاسباتی و کنترل بیش‌برازش (Overfitting) کمک می‌کند. رایج‌ترین نوع آن `Max Pooling` است که حداکثر مقدار را از یک پنجره کوچک در نقشه ویژگی انتخاب می‌کند.
+
+**مثال: Max Pooling**
+
+نقشه ویژگی $4 \times 4$:
+```
+[[1, 2, 3, 4],
+ [5, 6, 7, 8],
+ [9, 8, 7, 6],
+ [5, 4, 3, 2]]
+```
+با یک پنجره $2 \times 2$ و گام $2$:
+
+1.  **اولین پنجره (بالا چپ):**
+    `[[1, 2], [5, 6]]` -> حداکثر: `6`
+2.  **دومین پنجره (بالا راست):**
+    `[[3, 4], [7, 8]]` -> حداکثر: `8`
+3.  **سومین پنجره (پایین چپ):**
+    `[[9, 8], [5, 4]]` -> حداکثر: `9`
+4.  **چهارمین پنجره (پایین راست):**
+    `[[7, 6], [3, 2]]` -> حداکثر: `7`
+
+نقشه ویژگی خروجی پولینگ:
+```
+[[6, 8],
+ [9, 7]]
+```
+
+**خلاصه نکات کلیدی:**
+* CNN‌ها با لایه‌های پیچشی و پولینگ، الگوهای سلسله‌مراتبی را در تصاویر تشخیص می‌دهند.
+* پیچش (کانولوشن) عملیات اصلی است که از فیلترها برای استخراج ویژگی‌های محلی استفاده می‌کند.
+* پدینگ و پولینگ به کنترل اندازه نقشه‌های ویژگی و کاهش بیش‌برازش کمک می‌کنند.
+
+### 14.2. پیاده‌سازی یک CNN عمیق با PyTorch (Implementing a deep CNN using PyTorch)
+
+**خلاصه:**
+در این بخش، یک CNN عمیق را با استفاده از کتابخانه PyTorch پیاده‌سازی می‌کنیم. ابتدا معماری CNN چندلایه‌ای مورد بحث قرار می‌گیرد، سپس مراحل بارگذاری و پیش‌پردازش داده‌ها تشریح می‌شود. در ادامه، نحوه پیاده‌سازی یک CNN با استفاده از ماژول `torch.nn` و پیکربندی لایه‌های CNN در PyTorch توضیح داده می‌شود. در نهایت، با ساخت یک CNN در PyTorch، برای طبقه‌بندی تصاویر چهره (CelebA) با تشخیص لبخند استفاده می‌شود.
+
+**معادل‌های فارسی:**
+* **معماری CNN چندلایه:** Multilayer CNN Architecture
+* **بارگذاری داده:** Loading Data
+* **پیش‌پردازش داده:** Data Preprocessing
+* **ماژول `torch.nn`:** PyTorch Neural Network Module (`torch.nn`)
+* **لایه‌های کانولوشنی:** Convolutional Layers
+* **لایه پولینگ:** Pooling Layer
+* **لایه کاملاً متصل:** Fully Connected Layer
+* **رگولاریزاسیون L2:** L2 Regularization
+* **دِراپ‌اوت:** Dropout
+* **توابع زیان برای طبقه‌بندی:** Loss Functions for Classification
+* **طبقه‌بندی لبخند:** Smile Classification
+* **افزایش داده:** Data Augmentation
+
+#### 14.2.1. معماری CNN چندلایه (The multilayer CNN architecture)
+
+یک CNN معمولی از توالی چندین لایه پیچشی، لایه‌های فعال‌سازی (مانند ReLU)، و لایه‌های پولینگ تشکیل شده است. پس از این لایه‌های استخراج ویژگی، معمولاً یک یا چند لایه کاملاً متصل (Fully Connected Layers) برای طبقه‌بندی نهایی قرار می‌گیرند.
+
+#### 14.2.2. رگولاریزه کردن یک شبکه عصبی با رگولاریزاسیون L2 و دراپ‌اوت (Regularizing an NN with L2 regularization and dropout)
+
+**رگولاریزاسیون L2 (L2 Regularization):**
+این تکنیک با افزودن یک عبارت جریمه به تابع زیان (Loss Function)، وزن‌های مدل را به سمت مقادیر کوچک‌تر سوق می‌دهد. این کار به کاهش بیش‌برازش (Overfitting) کمک می‌کند. هرچه وزن‌ها کوچک‌تر باشند، مدل کمتر به داده‌های آموزشی خاص وابسته می‌شود و بهتر به داده‌های جدید تعمیم می‌یابد.
+
+**دِراپ‌اوت (Dropout):**
+دراپ‌اوت یک تکنیک رگولاریزاسیون بسیار موثر است که در طول آموزش، به طور تصادفی (با احتمال `p`) برخی از نورون‌ها (و اتصالات آن‌ها) را در لایه‌های پنهان شبکه "خاموش" می‌کند. این کار باعث می‌شود که شبکه برای انجام پیش‌بینی‌ها به هیچ نورون خاصی بیش از حد وابسته نشود و به نوعی به صورت چندین مدل کوچک‌تر (که به صورت مشترک آموزش می‌بینند) عمل کند. این به بهبود تعمیم‌پذیری مدل کمک می‌کند.
+
+#### 14.2.3. توابع زیان برای طبقه‌بندی (Loss functions for classification)
+
+تابع زیان (Loss Function) در طبقه‌بندی، میزان تفاوت بین خروجی پیش‌بینی‌شده مدل و برچسب‌های واقعی را اندازه‌گیری می‌کند. هدف آموزش، به حداقل رساندن این تابع زیان است. توابع زیان رایج برای طبقه‌بندی عبارتند از:
+* **آنتروپی متقابل دودویی (Binary Cross-Entropy):** برای مسائل طبقه‌بندی دودویی (دو کلاسه).
+* **آنتروپی متقابل دسته‌ای (Categorical Cross-Entropy):** برای مسائل طبقه‌بندی چندکلاسه.
+
+#### 14.2.4. پیاده‌سازی یک CNN با استفاده از ماژول `torch.nn` (Implementing a CNN using the torch.nn module)
+
+PyTorch یک ماژول قوی به نام `torch.nn` ارائه می‌دهد که ساخت شبکه‌های عصبی را آسان می‌کند. این ماژول شامل لایه‌های از پیش تعریف شده مانند `nn.Conv2d` (برای لایه‌های پیچشی)، `nn.MaxPool2d` (برای لایه‌های پولینگ حداکثری)، `nn.ReLU` (برای لایه‌های فعال‌سازی) و `nn.Linear` (برای لایه‌های کاملاً متصل) است.
+
+**مثال: ساخت یک CNN ساده با `torch.nn.Sequential`**
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
+
+# مرحله 1: تعریف تبدیل‌های داده
+# تبدیل به تنسور PyTorch و نرمال‌سازی (برای MNIST)
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,)) # میانگین و انحراف معیار برای MNIST
+])
+
+# مرحله 2: بارگذاری مجموعه داده MNIST
+# این بخش داده‌های ارقام دست‌نویس MNIST را دانلود و بارگذاری می‌کند.
+# `train=True` برای مجموعه آموزش و `train=False` برای مجموعه تست است.
+# `download=True` اگر داده‌ها موجود نباشند، آن‌ها را دانلود می‌کند.
+train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
+test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transform)
+
+# DataLoader برای دسته‌بندی و shuffle کردن داده‌ها
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
+
+# مرحله 3: تعریف معماری CNN
+# از nn.Sequential برای تعریف لایه‌ها به صورت ترتیبی استفاده می‌کنیم.
+class SimpleCNN(nn.Module):
+    def __init__(self):
+        super(SimpleCNN, self).__init__()
+        # لایه پیچشی اول: 1 کانال ورودی (تصاویر خاکستری), 32 کانال خروجی, اندازه هسته 3x3
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+        # لایه فعال‌سازی ReLU
+        self.relu1 = nn.ReLU()
+        # لایه پولینگ حداکثری: اندازه هسته 2x2، گام 2
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # لایه پیچشی دوم: 32 کانال ورودی, 64 کانال خروجی, اندازه هسته 3x3
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # لایه کاملاً متصل:
+        # ورودی لایه FC باید فلت شود. محاسبه اندازه ورودی:
+        # MNIST images: 28x28. After conv1/pool1: (28/2)x(28/2) = 14x14
+        # After conv2/pool2: (14/2)x(14/2) = 7x7
+        # Number of output channels from conv2: 64
+        # So, input to FC layer is 64 * 7 * 7 = 3136
+        self.fc1 = nn.Linear(64 * 7 * 7, 10) # 10 کلاس خروجی برای ارقام 0-9
+
+    def forward(self, x):
+        # اعمال لایه پیچشی، ReLU و پولینگ
+        x = self.pool1(self.relu1(self.conv1(x)))
+        x = self.pool2(self.relu2(self.conv2(x)))
+        # فلت کردن خروجی برای لایه کاملاً متصل
+        x = x.view(-1, 64 * 7 * 7) # -1 باعث می‌شود PyTorch اندازه دسته را به صورت خودکار محاسبه کند
+        # اعمال لایه کاملاً متصل
+        x = self.fc1(x)
+        return x
+
+# نمونه‌سازی مدل
+model = SimpleCNN()
+
+# تعریف تابع زیان و بهینه‌ساز
+# CrossEntropyLoss برای مسائل طبقه‌بندی چندکلاسه مناسب است.
+criterion = nn.CrossEntropyLoss()
+# Adam بهینه‌ساز محبوبی است.
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# مرحله 4: آموزش مدل
+num_epochs = 5
+for epoch in range(num_epochs):
+    model.train() # مدل را در حالت آموزش قرار می‌دهد
+    running_loss = 0.0
+    for batch_idx, (data, target) in enumerate(train_loader):
+        optimizer.zero_grad() # گرادیان‌های قبلی را صفر می‌کند
+        output = model(data) # انتشار رو به جلو (Forward Pass)
+        loss = criterion(output, target) # محاسبه زیان
+        loss.backward() # انتشار به عقب (Backward Pass)
+        optimizer.step() # به‌روزرسانی وزن‌ها
+        running_loss += loss.item()
+        
+        if (batch_idx + 1) % 100 == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Step [{batch_idx+1}/{len(train_loader)}], Loss: {running_loss/100:.4f}')
+            running_loss = 0.0
+
+# مرحله 5: ارزیابی مدل
+model.eval() # مدل را در حالت ارزیابی قرار می‌دهد
+correct = 0
+total = 0
+with torch.no_grad(): # گرادیان‌ها را در طول ارزیابی محاسبه نمی‌کند
+    for data, target in test_loader:
+        output = model(data)
+        _, predicted = torch.max(output.data, 1) # کلاس با بالاترین احتمال را انتخاب می‌کند
+        total += target.size(0)
+        correct += (predicted == target).sum().item()
+
+accuracy = 100 * correct / total
+print(f'دقت مدل بر روی داده‌های تست: {accuracy:.2f}%')
+
+# نمایش یک نمونه از نتایج
+dataiter = iter(test_loader)
+images, labels = next(dataiter)
+
+# پیش‌بینی مدل برای تصاویر اول دسته
+outputs = model(images)
+_, predicted = torch.max(outputs.data, 1)
+
+print('تصاویر واقعی:', ' '.join(f'{labels[j].item()}' for j in range(4)))
+print('پیش‌بینی‌شده:', ' '.join(f'{predicted[j].item()}' for j in range(4)))
+
+# نمایش تصاویر
+fig, axes = plt.subplots(1, 4, figsize=(10, 3))
+for i in range(4):
+    ax = axes[i]
+    # تصاویر MNIST تک کاناله هستند (سیاه و سفید)، نیازی به permute نیست
+    ax.imshow(images[i].squeeze().numpy(), cmap='gray') 
+    ax.set_title(f'Real: {labels[i].item()}\nPred: {predicted[i].item()}')
+    ax.axis('off')
+plt.tight_layout()
+plt.show()
+
+```
+
+**تفسیر خط به خط کد:**
+
+* **وارد کردن کتابخانه‌ها:** `torch`, `torch.nn`, `torch.optim`, `torchvision.datasets`, `torchvision.transforms`, `torch.utils.data.DataLoader`, `matplotlib.pyplot`, `numpy`.
+* **تعریف تبدیل‌ها (`transform`):** `transforms.Compose` توالی از تبدیل‌ها را تعریف می‌کند. `ToTensor()` تصاویر را به تنسور PyTorch تبدیل می‌کند و `Normalize` آن‌ها را نرمال‌سازی می‌کند تا میانگین 0 و انحراف معیار 1 داشته باشند. این برای پایداری آموزش مهم است.
+* **بارگذاری مجموعه داده MNIST:** `datasets.MNIST` مجموعه داده ارقام دست‌نویس MNIST را بارگذاری می‌کند. `train=True` برای مجموعه آموزش و `train=False` برای مجموعه تست است.
+* **`DataLoader`:** این ابزار داده‌ها را به دسته‌های کوچک‌تر (mini-batches) تقسیم می‌کند و آن‌ها را در هر دوره (epoch) به هم می‌زند (`shuffle=True`) تا الگوریتم آموزش را پایدارتر کند.
+* **تعریف `SimpleCNN`:**
+    * `class SimpleCNN(nn.Module):`: مدل CNN ما به عنوان یک کلاس تعریف شده است که از `nn.Module` ارث می‌برد.
+    * `__init__`: سازنده کلاس است که لایه‌های شبکه را تعریف می‌کند:
+        * `nn.Conv2d`: یک لایه پیچشی است. `in_channels` تعداد کانال‌های ورودی (1 برای تصاویر خاکستری MNIST)، `out_channels` تعداد فیلترها (32 یا 64)، `kernel_size` اندازه فیلتر (3x3)، و `padding=1` برای حفظ اندازه فضایی خروجی است.
+        * `nn.ReLU()`: تابع فعال‌سازی ReLU را اعمال می‌کند که غیرخطی بودن را به شبکه اضافه می‌کند.
+        * `nn.MaxPool2d`: یک لایه پولینگ حداکثری است که ابعاد فضایی را کاهش می‌دهد (اندازه هسته 2x2 و گام 2).
+        * `nn.Linear`: یک لایه کاملاً متصل است. ورودی آن باید فلت شده (Flatten) باشد و خروجی آن به تعداد کلاس‌ها (10 برای ارقام 0-9) است.
+    * `forward(self, x)`: این متد نحوه جریان داده‌ها از طریق لایه‌ها را تعریف می‌کند (انتشار رو به جلو).
+        * `x.view(-1, ...)`: خروجی لایه‌های پیچشی و پولینگ را به یک بردار یک‌بعدی فلت می‌کند تا بتواند به لایه کاملاً متصل وصل شود. `-1` به PyTorch می‌گوید که اندازه دسته را به صورت خودکار تعیین کند.
+* **نمونه‌سازی مدل، تابع زیان و بهینه‌ساز:**
+    * `model = SimpleCNN()`: یک نمونه از مدل CNN ما ایجاد می‌کند.
+    * `criterion = nn.CrossEntropyLoss()`: تابع زیان `CrossEntropyLoss` برای مسائل طبقه‌بندی چندکلاسه مناسب است و معمولاً با لایه خروجی خطی (بدون Softmax) استفاده می‌شود، زیرا خود `CrossEntropyLoss` شامل Softmax درونی است.
+    * `optimizer = optim.Adam(model.parameters(), lr=0.001)`: بهینه‌ساز Adam را تعریف می‌کند که مسئول به‌روزرسانی وزن‌های مدل در طول آموزش است. `lr` (learning rate) نرخ یادگیری را تعیین می‌کند.
+* **حلقه آموزش:**
+    * `model.train()`: مدل را در حالت آموزش قرار می‌دهد. این کار لایه‌هایی مانند دراپ‌اوت و Batch Normalization را فعال می‌کند.
+    * `optimizer.zero_grad()`: گرادیان‌های محاسبه شده در مرحله قبل را صفر می‌کند تا از تجمع آن‌ها جلوگیری شود.
+    * `output = model(data)`: داده‌های ورودی را از طریق مدل عبور می‌دهد (Forward Pass).
+    * `loss = criterion(output, target)`: مقدار تابع زیان را بر اساس خروجی مدل و برچسب‌های واقعی محاسبه می‌کند.
+    * `loss.backward()`: گرادیان‌های زیان را نسبت به تمام پارامترهای مدل محاسبه می‌کند (Backward Pass).
+    * `optimizer.step()`: وزن‌های مدل را بر اساس گرادیان‌های محاسبه شده به‌روزرسانی می‌کند.
+* **ارزیابی مدل:**
+    * `model.eval()`: مدل را در حالت ارزیابی قرار می‌دهد. این کار لایه‌هایی مانند دراپ‌اوت را غیرفعال می‌کند.
+    * `torch.no_grad()`: این بلوک کد تضمین می‌کند که هیچ گرادیانی در طول ارزیابی محاسبه نشود، که باعث صرفه‌جویی در حافظه و زمان می‌شود.
+    * `torch.max(output.data, 1)`: کلاس با بالاترین احتمال را از خروجی مدل انتخاب می‌کند.
+    * محاسبه و چاپ دقت مدل.
+* **نمایش نمونه نتایج:** تصاویری را از مجموعه تست برداشته و پیش‌بینی‌های مدل را در کنار برچسب‌های واقعی نمایش می‌دهد.
+
+**خروجی مورد انتظار:**
+
+```
+دقت مدل بر روی داده‌های تست: 98.42%
+تصاویر واقعی: 7 2 1 0
+پیش‌بینی‌شده: 7 2 1 0
+```
+(تصویر بالا نمونه‌ای از خروجی کد است که دقت بالای مدل را نشان می‌دهد. تصویر واقعی رقم و پیش‌بینی مدل در بالای هر تصویر نمایش داده می‌شود.)
+
+#### 14.2.5. طبقه‌بندی لبخند از تصاویر چهره با استفاده از CNN (Smile classification from face images using a CNN)
+
+این بخش به کاربرد عملی CNN در طبقه‌بندی تصاویر چهره برای تشخیص لبخند می‌پردازد. این شامل بارگذاری مجموعه داده CelebA، تبدیل و افزایش داده‌های تصویری، و آموزش یک طبقه‌بند لبخند CNN است.
+
+**بارگذاری مجموعه داده CelebA (Loading the CelebA dataset):**
+مجموعه داده CelebA (CelebFaces Attributes Dataset) شامل بیش از 200,000 تصویر چهره و 40 ویژگی با برچسب‌های مربوط به چهره (مانند لبخند، جنسیت، رنگ مو) است. این مجموعه داده برای آموزش مدل‌های تشخیص چهره و طبقه‌بندی ویژگی‌ها بسیار مناسب است.
+
+**تبدیل تصویر و افزایش داده (Image transformation and data augmentation):**
+**افزایش داده (Data Augmentation)** تکنیکی است که برای افزایش تنوع مجموعه داده آموزشی با ایجاد نسخه‌های تغییر یافته از تصاویر موجود استفاده می‌شود. این کار به جلوگیری از بیش‌برازش (Overfitting) کمک می‌کند و عملکرد مدل را بهبود می‌بخشد، به خصوص زمانی که داده‌های آموزشی محدود هستند. تبدیل‌های رایج شامل برش (Cropping)، چرخش (Flipping)، تغییر کنتراست (Adjusting Contrast)، تغییر روشنایی (Adjusting Brightness)، و تغییر اندازه (Resizing) هستند. `torchvision.transforms` ماژول قدرتمندی برای این منظور است.
+
+**مثال: افزایش داده با `torchvision.transforms`**
+
+```python
+import torch
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader, Subset
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+# مسیر ذخیره داده‌های CelebA (اگر دانلود نشده باشد، دانلود می‌شود)
+image_path = './'
+
+# تابعی برای استخراج ویژگی لبخند (فرض می‌کنیم ویژگی لبخند در ایندکس 18 است)
+get_smile = lambda attr: attr[18]
+
+# تبدیل‌های داده برای مجموعه آموزش (با افزایش داده)
+transform_train = transforms.Compose([
+    transforms.RandomCrop([178, 178]),        # برش تصادفی
+    transforms.RandomHorizontalFlip(),        # چرخش افقی تصادفی
+    transforms.Resize([64, 64]),              # تغییر اندازه به 64x64
+    transforms.ToTensor(),                    # تبدیل به تنسور PyTorch
+])
+
+# تبدیل‌های داده برای مجموعه اعتبارسنجی و تست (بدون افزایش داده)
+transform_eval = transforms.Compose([
+    transforms.CenterCrop([178, 178]),        # برش مرکزی
+    transforms.Resize([64, 64]),              # تغییر اندازه به 64x64
+    transforms.ToTensor(),                    # تبدیل به تنسور PyTorch
+])
+
+# بارگذاری مجموعه داده CelebA
+# توجه: برای CelebA، دانلود ممکن است با مشکل مواجه شود. اگر خطا دریافت کردید،
+# فایل‌ها را به صورت دستی از http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html دانلود و در پوشه image_path قرار دهید.
+try:
+    celeba_train_dataset = datasets.CelebA(
+        image_path, split='train',
+        target_type='attr', download=True,
+        transform=transform_train, target_transform=get_smile
+    )
+    celeba_valid_dataset = datasets.CelebA(
+        image_path, split='valid',
+        target_type='attr', download=True,
+        transform=transform_eval, target_transform=get_smile
+    )
+    celeba_test_dataset = datasets.CelebA(
+        image_path, split='test',
+        target_type='attr', download=True,
+        transform=transform_eval, target_transform=get_smile
+    )
+except RuntimeError as e:
+    print(f"خطا در دانلود CelebA: {e}. لطفاً فایل‌ها را به صورت دستی دانلود کنید و download=False را تنظیم کنید.")
+    # اگر دانلود خودکار نشد، فرض می‌کنیم فایل‌ها موجود هستند.
+    celeba_train_dataset = datasets.CelebA(
+        image_path, split='train',
+        target_type='attr', download=False, # تغییر به False اگر دستی دانلود شده است
+        transform=transform_train, target_transform=get_smile
+    )
+    celeba_valid_dataset = datasets.CelebA(
+        image_path, split='valid',
+        target_type='attr', download=False, # تغییر به False اگر دستی دانلود شده است
+        transform=transform_eval, target_transform=get_smile
+    )
+    celeba_test_dataset = datasets.CelebA(
+        image_path, split='test',
+        target_type='attr', download=False, # تغییر به False اگر دستی دانلود شده است
+        transform=transform_eval, target_transform=get_smile
+    )
+
+
+# محدود کردن اندازه مجموعه داده برای آموزش سریع‌تر (اختیاری)
+celeba_train_dataset = Subset(celeba_train_dataset, torch.arange(16000))
+celeba_valid_dataset = Subset(celeba_valid_dataset, torch.arange(1000))
+
+print(f'اندازه مجموعه آموزش: {len(celeba_train_dataset)}')
+print(f'اندازه مجموعه اعتبارسنجی: {len(celeba_valid_dataset)}')
+
+# DataLoader
+batch_size = 32
+torch.manual_seed(1) # برای تکرارپذیری
+
+train_dl = DataLoader(celeba_train_dataset, batch_size, shuffle=True)
+valid_dl = DataLoader(celeba_valid_dataset, batch_size, shuffle=False)
+test_dl = DataLoader(celeba_test_dataset, batch_size, shuffle=False)
+
+# نمایش چند نمونه افزایش داده شده
+fig, axes = plt.subplots(2, 5, figsize=(12, 6))
+fig.suptitle('نمونه‌های افزایش داده شده (Random Transformations)', fontsize=16)
+
+# نمایش دو نمونه تصادفی از مجموعه آموزش در 5 دوره مختلف
+# هر بار که از DataLoader تکرار می‌شود، تبدیل‌های تصادفی جدیدی اعمال می‌شوند
+for j in range(5):
+    img_batch, label_batch = next(iter(train_dl))
+    
+    # تصویر اول
+    img1 = img_batch[0].permute(1, 2, 0).numpy() # (C, H, W) به (H, W, C)
+    ax1 = axes[0, j]
+    ax1.imshow(img1)
+    ax1.set_title(f'Epoch {j+1}')
+    ax1.axis('off')
+
+    # تصویر دوم
+    img2 = img_batch[1].permute(1, 2, 0).numpy()
+    ax2 = axes[1, j]
+    ax2.imshow(img2)
+    ax2.set_title(f'Epoch {j+1}')
+    ax2.axis('off')
+
+plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # تنظیم مستطیل نمودار برای جلوگیری از تداخل عنوان
+plt.show()
+
+```
+
+**تفسیر خط به خط کد:**
+
+* **`image_path`**: مسیری که داده‌های CelebA دانلود و ذخیره می‌شوند.
+* **`get_smile = lambda attr: attr[18]`**: یک تابع لامبدا که ویژگی لبخند را از لیست ویژگی‌ها (که در ایندکس 18 قرار دارد) استخراج می‌کند.
+* **`transform_train`**: مجموعه‌ای از تبدیل‌ها برای داده‌های آموزشی. شامل `RandomCrop` (برش تصادفی)، `RandomHorizontalFlip` (چرخش افقی تصادفی) برای افزایش داده، و `Resize` و `ToTensor` برای آماده‌سازی نهایی تصویر است.
+* **`transform_eval`**: تبدیل‌ها برای داده‌های اعتبارسنجی و تست. این تبدیل‌ها شامل افزایش داده نیستند، فقط شامل `CenterCrop` (برش مرکزی)، `Resize` و `ToTensor` هستند.
+* **بارگذاری `datasets.CelebA`**: این خطوط مجموعه داده CelebA را بارگذاری می‌کنند. `download=True` تلاش می‌کند داده‌ها را دانلود کند. اگر به دلیل محدودیت‌های API یا مشکلات دیگر دانلود نشد، می‌توانید `download=False` را تنظیم کرده و فایل‌ها را به صورت دستی در `image_path` قرار دهید.
+* **`Subset`**: برای اهداف آموزشی، زیرمجموعه‌های کوچک‌تری از داده‌های آموزش و اعتبارسنجی را انتخاب می‌کنیم.
+* **`DataLoader`**: همانند مثال MNIST، داده‌ها را به دسته‌های کوچک‌تر تقسیم می‌کند.
+* **نمایش نمونه‌های افزایش داده شده**: این قسمت از کد به صورت بصری نشان می‌دهد که چگونه تبدیل‌های تصادفی (`transform_train`) باعث می‌شوند هر بار که به همان تصاویر دسترسی پیدا می‌کنیم، کمی متفاوت به نظر برسند و تنوع در مجموعه داده را افزایش دهند. `permute(1, 2, 0)` برای تغییر ترتیب ابعاد تنسور تصویر از (C, H, W) به (H, W, C) لازم است تا `matplotlib` بتواند آن را نمایش دهد.
+
+**خروجی مورد انتظار:**
+
+```
+اندازه مجموعه آموزش: 16000
+اندازه مجموعه اعتبارسنجی: 1000
+```
+(تصویر بالا نتایج پنج تبدیل تصادفی در دو تصویر نمونه از مجموعه داده CelebA را در طول دوره‌های مختلف نشان می‌دهد.)
+
+#### 14.2.6. آموزش یک طبقه‌بند لبخند CNN (Training a CNN smile classifier)
+
+پس از آماده‌سازی داده‌ها، می‌توانید یک مدل CNN برای طبقه‌بندی لبخند را تعریف و آموزش دهید. این مدل معمولاً از چندین لایه پیچشی، پولینگ و فعال‌سازی تشکیل شده و سپس به لایه‌های کاملاً متصل برای خروجی نهایی متصل می‌شود.
+
+**مثال: تعریف و آموزش مدل CNN برای طبقه‌بندی لبخند (این بخش به عنوان یک چارچوب برای بخش‌های عملی‌تر در کتاب است)**
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader, Subset
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+# فرض می‌کنیم بخش‌های بارگذاری و آماده‌سازی داده (CelebA Dataset) قبلاً انجام شده است
+# و `train_dl`, `valid_dl`, `test_dl` آماده استفاده هستند.
+
+# تعریف معماری مدل CNN برای طبقه‌بندی لبخند
+class SmileCNN(nn.Module):
+    def __init__(self):
+        super(SmileCNN, self).__init__()
+        # لایه پیچشی اول: 3 کانال ورودی (RGB), 32 کانال خروجی, هسته 3x3, پدینگ 1
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool2d(kernel_size=2) # خروجی 32x32
+        self.dropout1 = nn.Dropout(p=0.5)
+
+        # لایه پیچشی دوم: 32 -> 64 کانال, هسته 3x3, پدینگ 1
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(kernel_size=2) # خروجی 16x16
+        self.dropout2 = nn.Dropout(p=0.5)
+
+        # لایه پیچشی سوم: 64 -> 128 کانال, هسته 3x3, پدینگ 1
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool2d(kernel_size=2) # خروجی 8x8
+
+        # لایه پیچشی چهارم: 128 -> 256 کانال, هسته 3x3, پدینگ 1
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.relu4 = nn.ReLU()
+        
+        # لایه پولینگ میانگین سراسری (Global Average Pooling)
+        # این لایه ابعاد فضایی را به 1x1 کاهش می‌دهد (میانگین هر نقشه ویژگی را محاسبه می‌کند)
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1)) 
+
+        # لایه کاملاً متصل:
+        # ورودی از 256 کانال خروجی لایه پیچشی چهارم می‌آید (بعد از گلوبال پولینگ)
+        # خروجی 1 (برای طبقه‌بندی دودویی لبخند/عدم لبخند)
+        self.fc = nn.Linear(256, 1)
+        # تابع سیگموئید برای تبدیل خروجی به احتمال (0 تا 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.dropout1(self.pool1(self.relu1(self.conv1(x))))
+        x = self.dropout2(self.pool2(self.relu2(self.conv2(x))))
+        x = self.pool3(self.relu3(self.conv3(x)))
+        x = self.relu4(self.conv4(x))
+        
+        # اعمال گلوبال پولینگ میانگین
+        x = self.global_avg_pool(x)
+        x = x.view(x.size(0), -1) # فلت کردن برای لایه FC
+        
+        x = self.fc(x)
+        x = self.sigmoid(x) # خروجی احتمال بین 0 و 1
+        return x
+
+# نمونه‌سازی مدل
+model = SmileCNN()
+
+# تعریف تابع زیان (Binary Cross-Entropy برای طبقه‌بندی دودویی)
+# nn.BCELoss انتظار خروجی مدل Sigmoid شده را دارد.
+criterion = nn.BCELoss() 
+
+# تعریف بهینه‌ساز
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# تابع کمکی برای محاسبه دقت
+def compute_accuracy(model, data_loader, device):
+    model.eval() # حالت ارزیابی
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in data_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device).float().view(-1, 1) # reshape labels for BCELoss
+            
+            outputs = model(inputs)
+            predicted = (outputs > 0.5).float() # اگر احتمال > 0.5 باشد، 1، در غیر این صورت 0
+            
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return 100 * correct / total
+
+# تنظیم دستگاه (GPU اگر موجود باشد، در غیر این صورت CPU)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# حلقه آموزش
+num_epochs = 10
+train_losses = []
+valid_accuracies = []
+
+for epoch in range(num_epochs):
+    model.train() # حالت آموزش
+    running_loss = 0.0
+    for batch_idx, (inputs, labels) in enumerate(train_dl):
+        inputs = inputs.to(device)
+        labels = labels.to(device).float().view(-1, 1) # BCELoss نیاز به (N, 1) دارد
+
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+
+    avg_train_loss = running_loss / len(train_dl)
+    train_losses.append(avg_train_loss)
+    
+    # ارزیابی بر روی مجموعه اعتبارسنجی
+    valid_acc = compute_accuracy(model, valid_dl, device)
+    valid_accuracies.append(valid_acc)
+
+    print(f'Epoch [{epoch+1}/{num_epochs}], '
+          f'Loss: {avg_train_loss:.4f}, '
+          f'Validation Accuracy: {valid_acc:.2f}%')
+
+# ارزیابی نهایی بر روی مجموعه تست
+test_accuracy = compute_accuracy(model, test_dl, device)
+print(f'\nدقت نهایی مدل بر روی داده‌های تست: {test_accuracy:.2f}%')
+
+# رسم نمودار خطا و دقت
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(range(1, num_epochs + 1), train_losses, marker='o')
+plt.xlabel('Epochs')
+plt.ylabel('Training Loss (BCE)')
+plt.title('Training Loss per Epoch')
+
+plt.subplot(1, 2, 2)
+plt.plot(range(1, num_epochs + 1), valid_accuracies, marker='o', color='green')
+plt.xlabel('Epochs')
+plt.ylabel('Validation Accuracy (%)')
+plt.title('Validation Accuracy per Epoch')
+
+plt.tight_layout()
+plt.show()
+
+```
+
+**تفسیر خط به خط کد:**
+
+* **تعریف `SmileCNN`:**
+    * این کلاس یک CNN چهار لایه پیچشی را تعریف می‌کند. هر لایه شامل `nn.Conv2d`، `nn.ReLU` و `nn.MaxPool2d` است (به جز لایه آخر که فقط پیچشی و ReLU است).
+    * `nn.Dropout`: لایه‌های دراپ‌اوت (با احتمال `p=0.5`) بعد از دو لایه پولینگ اول اضافه شده‌اند تا به رگولاریزاسیون و کاهش بیش‌برازش کمک کنند.
+    * `nn.AdaptiveAvgPool2d((1, 1))`: این لایه یک **پولینگ میانگین سراسری (Global Average Pooling)** انجام می‌دهد که ابعاد فضایی هر نقشه ویژگی را به $1 \times 1$ کاهش می‌دهد. این کار باعث می‌شود خروجی به اندازه تعداد کانال‌ها باشد (256 در این مورد) و سپس می‌توان آن را به راحتی به لایه کاملاً متصل وصل کرد. این روش اغلب به جای فلت کردن مستقیم برای کاهش بیش‌برازش استفاده می‌شود.
+    * `self.fc = nn.Linear(256, 1)`: یک لایه کاملاً متصل که 256 ورودی (از پولینگ سراسری) را به 1 خروجی (برای طبقه‌بندی دودویی) نگاشت می‌کند.
+    * `self.sigmoid = nn.Sigmoid()`: تابع سیگموئید (Sigmoid) در لایه خروجی برای تبدیل امتیازات (logits) به احتمالات بین 0 و 1 استفاده می‌شود. این برای مسائل طبقه‌بندی دودویی ضروری است.
+* **تابع زیان و بهینه‌ساز:**
+    * `criterion = nn.BCELoss()`: از تابع زیان `Binary Cross-Entropy Loss` برای طبقه‌بندی دودویی استفاده می‌شود. این تابع انتظار دارد که خروجی مدل (بعد از سیگموئید) و برچسب‌های واقعی هر دو در محدوده [0, 1] باشند.
+    * `optimizer = optim.Adam(model.parameters(), lr=0.001)`: بهینه‌ساز Adam با نرخ یادگیری 0.001.
+* **`compute_accuracy` تابع:**
+    * این تابع دقت مدل را بر روی یک `DataLoader` محاسبه می‌کند.
+    * `model.eval()`: مدل را در حالت ارزیابی قرار می‌دهد تا دراپ‌اوت و Batch Normalization به درستی عمل کنند.
+    * `torch.no_grad()`: از محاسبه گرادیان‌ها در طول ارزیابی جلوگیری می‌کند.
+    * `labels = labels.to(device).float().view(-1, 1)`: برچسب‌ها را به نوع `float` و شکل `(N, 1)` تغییر می‌دهد تا با خروجی مدل و `BCELoss` سازگار باشد.
+    * `predicted = (outputs > 0.5).float()`: خروجی‌های احتمالی را به برچسب‌های دودویی (0 یا 1) تبدیل می‌کند.
+* **حلقه آموزش:**
+    * مدل در حالت آموزش (`model.train()`) قرار می‌گیرد.
+    * برای هر دسته از داده‌ها، گرادیان‌ها صفر می‌شوند، انتشار رو به جلو انجام می‌شود، زیان محاسبه می‌شود، انتشار به عقب انجام می‌شود و وزن‌ها به‌روزرسانی می‌شوند.
+    * پس از هر دوره، دقت بر روی مجموعه اعتبارسنجی محاسبه و نمایش داده می‌شود.
+* **ارزیابی نهایی و رسم نمودار:**
+    * دقت نهایی بر روی مجموعه تست محاسبه می‌شود.
+    * نمودارهای زیان آموزش و دقت اعتبارسنجی در طول دوره‌ها رسم می‌شوند تا پیشرفت مدل ردیابی شود.
+
+**خروجی مورد انتظار:**
+
+(خروجی دقیق بسته به سخت‌افزار، مقادیر اولیه تصادفی و فرآیند آموزش متفاوت خواهد بود، اما انتظار می‌رود زیان آموزش کاهش یابد و دقت اعتبارسنجی افزایش یابد.)
+
+```
+Epoch [1/10], Loss: 0.6385, Validation Accuracy: 64.90%
+Epoch [2/10], Loss: 0.5841, Validation Accuracy: 68.30%
+Epoch [3/10], Loss: 0.5517, Validation Accuracy: 70.80%
+...
+Epoch [10/10], Loss: 0.4402, Validation Accuracy: 79.50%
+
+دقت نهایی مدل بر روی داده‌های تست: 79.00%
+```
+(تصویر بالا نمونه‌ای از نمودارهای زیان آموزش و دقت اعتبارسنجی را در طول دوره‌های مختلف نشان می‌دهد.)
+
+**خلاصه نکات کلیدی:**
+* CNN‌ها با استفاده از `torch.nn` به راحتی در PyTorch پیاده‌سازی می‌شوند.
+* رگولاریزاسیون L2 و دراپ‌اوت برای جلوگیری از بیش‌برازش ضروری هستند.
+* `BCELoss` و `Sigmoid` برای طبقه‌بندی دودویی مناسب‌اند.
+* افزایش داده (Data Augmentation) به مدل کمک می‌کند تا به داده‌های جدید بهتر تعمیم یابد.
+* پولینگ میانگین سراسری (Global Average Pooling) روشی موثر برای کاهش ابعاد فضایی قبل از لایه‌های کاملاً متصل است.
+
+---
